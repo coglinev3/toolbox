@@ -26,7 +26,8 @@ __init() {
 		return 1
 	fi
 
-	declare -xgri __log_debug=3
+	declare -xgri __log_debug=4
+    declare -xgri __log_verbose=3
 	declare -xgri __log_info=2
 	declare -xgri __log_warning=1
 	declare -xgri __log_error=0
@@ -34,6 +35,8 @@ __init() {
 	declare -xgi __log_verbosity="$__log_warning"
 	declare -xgr __log_path="$TOOLBOX_HOME/log"
 	declare -xgr __log_file="$__log_path/$script_name.log"
+
+    declare -xg __log_color_default="$(tput sgr0)"
 
 	if ! mkdir -p "$__log_path"; then
 		return 1
@@ -82,18 +85,19 @@ log_decrease_verbosity() {
 
 _log_write() {
 	local level="$1"
-	local prefix="$2"
+    local color="$2"
+	local prefix="$3"
 
 	local line
 
 	if (( __log_verbosity < level )); then
 		local drain
-		[[ $# == 2 ]] &&  IFS="" read -r -d "" drain
+		[[ $# == 3 ]] &&  IFS="" read -r -d "" drain
 		return 0
 	fi
 
-	if (( $# > 2 )); then
-		for line in "${@:3}"; do
+	if (( $# > 3 )); then
+		for line in "${@:4}"; do
 			local timestamp
 
 			if ! timestamp=$(date +"%F %T %z"); then
@@ -105,11 +109,11 @@ _log_write() {
 				echo "Could not write to $__log_file" 1>&2
 			fi
 
-			echo "$timestamp $$ $prefix $line" 1>&2
+			echo "${color}$timestamp $$ $prefix $line${__log_color_default}" 1>&2
 		done
 	else
 		while IFS="" read -r line; do
-			_log_write "$level" "$prefix" "$line"
+			_log_write "$level" "$color" "$prefix" "$line"
 		done
 	fi
 
@@ -151,28 +155,37 @@ log_highlight() {
 
 log_debug() {
 	local lines=("$@")
+    local log_color_blue="$(tput setaf 4)"
 
 	local dbgtag
 
 	dbgtag="${BASH_SOURCE[1]}:${BASH_LINENO[1]} ${FUNCNAME[1]}:"
 
-	_log_write "$__log_debug" "[DBG] $dbgtag" "${lines[@]}"
+	_log_write "$__log_debug" "$log_color_blue" "[DBG] $dbgtag" "${lines[@]}"
+}
+
+log_verbose() {
+	local lines=("$@")
+
+	_log_write "$__log_verbose" "$__log_color_default" "[INF]" "${lines[@]}"
 }
 
 log_info() {
 	local lines=("$@")
 
-	_log_write "$__log_info" "[INF]" "${lines[@]}"
+	_log_write "$__log_info" "$__log_color_default" "[INF]" "${lines[@]}"
 }
 
 log_warn() {
-	local lines=("$@")
+  local lines=("$@")
+  local log_color_yellow="$(tput setaf 3)"
 
-	_log_write "$__log_warning" "[WRN]" "${lines[@]}"
+  _log_write "$__log_warning" "$log_color_yellow" "[WRN]" "${lines[@]}"
 }
 
 log_error() {
 	local lines=("$@")
+    local log_color_red="$(tput setaf 1)"
 
-	_log_write "$__log_error" "[ERR]" "${lines[@]}"
+	_log_write "$__log_error" "$log_color_red" "[ERR]" "${lines[@]}"
 }
