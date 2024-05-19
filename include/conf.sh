@@ -46,11 +46,20 @@ conf_get() {
   local name="$1"
   local config="$2"
 
+  local config_file
+
   if [[ -z "$config" ]]; then
-    config="default"
+    config_file="$__conf_root/default.conf"
+  else
+    config_file="${config##*/}"
+    # If the extension corresponds to the file name, this means that no
+    # extension exists. It must be a domain.
+    if [[ "${config_file}" == "${config_file##*.}" ]]; then
+      config_file="$__conf_root/${config}.conf"
+    fi
   fi
 
-  if ! grep -m 1 -oP "^$name\s*=\s*\\K.*" "$__conf_root/$config.conf" 2>/dev/null; then
+  if ! grep -m 1 -oP "^$name\s*=\s*\\K.*" "${config_file}" 2>/dev/null; then
     return 1
   fi
 
@@ -61,11 +70,20 @@ conf_unset() {
   local name="$1"
   local config="$2"
 
+  local config_file
+
   if [[ -z "$config" ]]; then
-    config="default"
+    config_file="$__conf_root/default.conf"
+  else
+    config_file="${config##*/}"
+    # If the extension corresponds to the file name, this means that no
+    # extension exists. It must be a domain.
+    if [[ "${config_file}" == "${config_file##*.}" ]]; then
+      config_file="$__conf_root/${config}.conf"
+    fi
   fi
 
-  if ! sed -i -e "/^$name=.*/d" "$__conf_root/$config.conf" &> /dev/null; then
+  if ! sed -i -e "/^$name=.*/d" "${config_file}" &> /dev/null; then
     return 1
   fi
 
@@ -77,8 +95,18 @@ conf_set() {
   local value="$2"
   local config="$3"
 
+  local config_file
+
   if [[ -z "$config" ]]; then
-    config="default"
+    # config="default"
+    config_file="$__conf_root/default.conf"
+  else
+    config_file="${config##*/}"
+    # If the extension corresponds to the file name, this means that no
+    # extension exists. It must be a domain.
+    if [[ "${config_file}" == "${config_file##*.}" ]]; then
+      config_file="$__conf_root/${config}.conf"
+    fi
   fi
 
   if conf_get "$name" "$config" &> /dev/null; then
@@ -87,7 +115,7 @@ conf_set() {
     fi
   fi
 
-  if ! echo "$name=$value" >> "$__conf_root/$config.conf"; then
+  if ! echo "$name=$value" >> "${config_file}"; then
     return 1
   fi
 
@@ -108,15 +136,18 @@ conf_get_domains() {
 conf_get_names() {
   local config="$1"
 
-  local confpath
+  local config_file
 
   if [[ -z "$config" ]]; then
-    config="default"
+    config_file="$__conf_root/default.conf"
+  else
+    config_file="${config##*/}"
+    if [[ "${config_file}" == "${config_file##*.}" ]]; then
+      config_file="$__conf_root/${config}.conf"
+    fi
   fi
 
-  confpath="$__conf_root/$config.conf"
-
-  if ! grep -oP "^\\K[^\s*=\s*]+" < "$confpath" | grep -v "^#"; then
+  if ! grep -oP "^\\K[^\s*=\s*]+" < "${config_file}" | grep -v "^#"; then
     return 1
   fi
 
