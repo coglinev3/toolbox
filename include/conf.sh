@@ -42,11 +42,11 @@ __init() {
   return 0
 }
 
-conf_get() {
-  local name="$1"
-  local config="$2"
+_conf_get_confpath() {
+  local config="$1"
 
   local config_file
+  local config_path
 
   if [[ -z "$config" ]]; then
     config_file="$__conf_root/default.conf"
@@ -56,7 +56,28 @@ conf_get() {
     # extension exists. It must be a domain.
     if [[ "${config_file}" == "${config_file##*.}" ]]; then
       config_file="$__conf_root/${config}.conf"
+    else
+      config_file="${config}"
     fi
+  fi
+
+  if ! [[ -r "${config_file}" ]]; then
+    log_warn "Can't read ${config_file}!"
+    return 1
+  fi
+
+  echo "${config_file}"
+  return 0
+}
+
+conf_get() {
+  local name="$1"
+  local config="$2"
+
+  local config_file
+
+  if ! config_file="$(_conf_get_confpath ${config})"; then
+    return 1
   fi
 
   if ! grep -m 1 -oP "^$name\s*=\s*\\K.*" "${config_file}" 2>/dev/null; then
@@ -72,15 +93,8 @@ conf_unset() {
 
   local config_file
 
-  if [[ -z "$config" ]]; then
-    config_file="$__conf_root/default.conf"
-  else
-    config_file="${config##*/}"
-    # If the extension corresponds to the file name, this means that no
-    # extension exists. It must be a domain.
-    if [[ "${config_file}" == "${config_file##*.}" ]]; then
-      config_file="$__conf_root/${config}.conf"
-    fi
+  if ! config_file="$(_conf_get_confpath ${config})"; then
+    return 1
   fi
 
   if ! sed -i -e "/^$name=.*/d" "${config_file}" &> /dev/null; then
@@ -97,16 +111,8 @@ conf_set() {
 
   local config_file
 
-  if [[ -z "$config" ]]; then
-    # config="default"
-    config_file="$__conf_root/default.conf"
-  else
-    config_file="${config##*/}"
-    # If the extension corresponds to the file name, this means that no
-    # extension exists. It must be a domain.
-    if [[ "${config_file}" == "${config_file##*.}" ]]; then
-      config_file="$__conf_root/${config}.conf"
-    fi
+  if ! config_file="$(_conf_get_confpath ${config})"; then
+    return 1
   fi
 
   if conf_get "$name" "$config" &> /dev/null; then
@@ -138,13 +144,8 @@ conf_get_names() {
 
   local config_file
 
-  if [[ -z "$config" ]]; then
-    config_file="$__conf_root/default.conf"
-  else
-    config_file="${config##*/}"
-    if [[ "${config_file}" == "${config_file##*.}" ]]; then
-      config_file="$__conf_root/${config}.conf"
-    fi
+  if ! config_file="$(_conf_get_confpath ${config})"; then
+    return 1
   fi
 
   if ! grep -oP "^\\K[^\s*=\s*]+" < "${config_file}" | grep -v "^#"; then
